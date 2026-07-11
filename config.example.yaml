@@ -1,0 +1,29 @@
+# agentic-os configuration — copy to config.yaml and edit
+
+name: jarvis
+owner: Aryan
+personality: >
+  A sharp, direct personal assistant for a developer. Concise answers,
+  concrete suggestions, no corporate filler.
+
+model: claude-opus-4-8
+max_tokens: 16000
+effort: high              # low | medium | high | xhigh | max (adaptive thinking only)
+thinking: adaptive        # adaptive (Opus 4.6+ / Sonnet 5) | extended (older models) | off
+# thinking_budget: 4096   # only for thinking: extended (must be < max_tokens)
+
+workspace: ~/agentic-os-workspace
+# memory_db: defaults to <workspace>/memory.db
+
+require_approval: true    # ask y/N before any shell command in chat
+autonomous_shell: false   # allow shell in unattended scheduled tasks
+shell_timeout: 120
+
+# Scheduled tasks — run one pass via cron:
+#   */30 * * * * cd /path/to/agentic-os && python3 -m agentic_os.scheduler --config config.yaml
+tasks:
+  - name: morning-brief
+    every: daily
+    prompt: >
+      Read any notes in the workspace notes/ directory, check stored memories
+      for open threads, and write a short morning brief to briefs/today.md.
