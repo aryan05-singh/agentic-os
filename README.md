@@ -70,6 +70,16 @@ Also in the dashboard:
   clustered by topic, one canvas and zero chart libraries.
 - **Web reading** — the agent has a `fetch_url` tool, so you can paste a link
   and ask about it.
+- **Content System** — type a topic, hit Generate, and a one-shot LLM call
+  (separate from your chat history) writes a short post and stores it in
+  `content.json`. No hashtag spam, just the text.
+- **Expenses / Recent Mail** — honest empty-state panels: a "Connect Gmail"
+  button, same disconnected state a fresh install would actually be in. Real
+  Gmail data is a bigger scope (OAuth) than this project takes on; the UI is
+  there when it's wired up.
+- **Settings / Queue** — a read-only settings dialog (model, thinking mode,
+  workspace path, approval policy) and a queue indicator that reflects
+  whether a turn is in flight.
 
 ## Browser automation
 

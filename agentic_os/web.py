@@ -5,12 +5,16 @@
 Same philosophy as the rest of the OS: no frameworks. A stdlib ThreadingHTTPServer
 serves one page and three JSON endpoints:
 
-    GET  /                 the dashboard (chat + memory + tasks)
+    GET  /                 the dashboard (chat + memory + tasks + content)
     POST /api/chat         {"message": ...} -> SSE stream of token/approval/done events
     POST /api/approve      {"allow": bool}  -> resolves a pending shell approval
-    GET  /api/state        agent identity, recent memories, todos, task schedule
+    GET  /api/state        identity, memories, todos, tasks, content, settings, queue
     POST /api/todos        {"text": ...}    -> add a today-task
     POST /api/todos/toggle {"id": ...}      -> toggle a today-task done/undone
+    POST /api/content      {"topic": ...}   -> generate a short post, store + return it
+
+Expenses and Recent Mail are honest empty-state panels (no Gmail wiring yet,
+same as the reference UI's own disconnected state) — no endpoints needed.
 
 Shell approval works exactly like the CLI's y/N gate, but over HTTP: the kernel
 blocks mid-turn, the browser shows an Allow/Deny dialog, and the answer flows
@@ -28,7 +32,7 @@ from pathlib import Path
 
 from .config import load_config
 from .kernel import Kernel
-from .llm import make_client
+from .llm import make_client, request_params
 from .memory import Memory
 from .scheduler import INTERVALS
 
@@ -115,6 +119,42 @@ class ChatServer:
                     return True
         return False
 
+    # -- content system — one-shot post generation, separate from chat history --
+
+    @property
+    def _content_path(self) -> Path:
+        return self.config["workspace"] / "content.json"
+
+    def _load_content(self) -> list[dict]:
+        if self._content_path.exists():
+            return json.loads(self._content_path.read_text())
+        return []
+
+    def generate_content(self, topic: str) -> dict:
+        with self.lock:
+            system = (
+                f"You write short, punchy social posts for {self.config['owner']}. "
+                "Return only the post text: no preamble, no hashtag spam, under 280 characters."
+            )
+            messages = [{"role": "user", "content": f"Write a post about: {topic}"}]
+            params = request_params(self.config, system, messages, [])
+            with self.kernel.client.messages.stream(**params) as stream:
+                for _ in stream.text_stream:
+                    pass
+                response = stream.get_final_message()
+            text = "".join(b.text for b in response.content if b.type == "text").strip()
+
+            posts = self._load_content()
+            post = {
+                "id": max((p["id"] for p in posts), default=0) + 1,
+                "topic": topic,
+                "text": text,
+                "created_at": int(time.time()),
+            }
+            posts.insert(0, post)
+            self._content_path.write_text(json.dumps(posts[:20]))
+        return post
+
     # -- request-facing operations --
 
     def chat(self, message: str, sse_writer) -> None:
@@ -152,6 +192,19 @@ class ChatServer:
             "memories": memories,
             "tasks": tasks,
             "todos": self._load_todos(),
+            "content": self._load_content(),
+            "busy": self._sse is not None,
+            "settings": {
+                "owner": self.config["owner"],
+                "model": self.config["model"],
+                "thinking": self.config["thinking"],
+                "effort": self.config["effort"],
+                "workspace": str(self.config["workspace"]),
+                "require_approval": self.config["require_approval"],
+                "autonomous_shell": self.config["autonomous_shell"],
+                "shell_timeout": self.config["shell_timeout"],
+                "browser_timeout": self.config["browser_timeout"],
+            },
         }
 
 
@@ -220,6 +273,15 @@ def make_handler(server: ChatServer):
                     self._json({"toggled": todo_id})
                 else:
                     self._json({"error": "no such task"}, 404)
+            elif self.path == "/api/content":
+                topic = self._read_body().get("topic", "").strip()
+                if not topic:
+                    self._json({"error": "empty topic"}, 400)
+                    return
+                try:
+                    self._json(server.generate_content(topic))
+                except Exception as e:  # noqa: BLE001 — surface to the page
+                    self._json({"error": str(e)}, 500)
             else:
                 self._json({"error": "not found"}, 404)
 

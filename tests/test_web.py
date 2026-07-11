@@ -26,7 +26,9 @@ def make_config(tmp_path):
         "workspace": tmp_path,
         "memory_db": tmp_path / "memory.db",
         "require_approval": True,
+        "autonomous_shell": False,
         "shell_timeout": 10,
+        "browser_timeout": 20,
         "tasks": [{"name": "brief", "every": "daily", "prompt": "do the brief"}],
     }
 
@@ -94,6 +96,35 @@ def test_todos_reject_empty_and_unknown(server):
     with pytest.raises(urllib.error.HTTPError) as e:
         post(f"{base}/api/todos/toggle", {"id": 999})
     assert e.value.code == 404
+
+
+def test_content_generation_stores_and_returns_post(server):
+    chat_server, base = server
+    chat_server.kernel.client._responses = iter([response([text_block("Ship small, ship often.")])])
+    with post(f"{base}/api/content", {"topic": "shipping fast"}) as resp:
+        post_body = json.loads(resp.read())
+    assert post_body["topic"] == "shipping fast"
+    assert post_body["text"] == "Ship small, ship often."
+
+    state = get_json(f"{base}/api/state")
+    assert state["content"] == [post_body]
+    # a one-shot content call must not pollute the chat conversation history
+    assert chat_server.kernel.messages == []
+
+
+def test_content_rejects_empty_topic(server):
+    _, base = server
+    with pytest.raises(urllib.error.HTTPError) as e:
+        post(f"{base}/api/content", {"topic": " "})
+    assert e.value.code == 400
+
+
+def test_state_reports_settings_and_queue(server):
+    _, base = server
+    state = get_json(f"{base}/api/state")
+    assert state["busy"] is False
+    assert state["settings"]["owner"] == "tester"
+    assert state["settings"]["model"] == "claude-opus-4-8"
 
 
 def test_dashboard_page_served(server):

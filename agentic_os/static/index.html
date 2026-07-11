@@ -48,6 +48,7 @@
     border-radius: 9px; padding: 7px 13px; font-size: 15px; cursor: pointer;
   }
   .icon-btn.on { color: var(--red); border-color: var(--red-deep); }
+  button.pill { cursor: pointer; }
 
   /* ---- layout ---- */
   main {
@@ -153,18 +154,69 @@
   }
   .task .badge.due { color: var(--ok); border-color: var(--ok); }
 
-  /* approval modal */
-  #overlay { position: fixed; inset: 0; background: rgba(4,2,3,.7); display: none; align-items: center; justify-content: center; }
-  #overlay.show { display: flex; }
-  #dialog { width: min(560px, 90vw); }
-  #dialog h3 { font-size: 14px; margin-bottom: 12px; }
+  /* expenses */
+  .toggle-group { margin-left: auto; display: flex; gap: 2px; }
+  .toggle-group button {
+    background: none; color: var(--dim); border: 1px solid var(--line);
+    font: 700 10px var(--mono); letter-spacing: .05em; padding: 3px 8px; cursor: pointer;
+  }
+  .toggle-group button:first-child { border-radius: 3px 0 0 3px; }
+  .toggle-group button:last-child { border-radius: 0 3px 3px 0; }
+  .toggle-group button.active { color: var(--red); border-color: var(--red-deep); background: var(--panel-2); }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .stat-tile {
+    background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 4px; padding: 10px 12px;
+  }
+  .stat-tile .label { font: 700 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .stat-tile .value { font: 700 20px var(--mono); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .stat-tile.revenue .value { color: var(--ok); }
+  .stat-tile.expense .value { color: var(--red); }
+  .net-line { font-size: 12.5px; color: var(--dim); margin-bottom: 14px; }
+  .net-line b { color: var(--ok); font-variant-numeric: tabular-nums; }
+  .disconnected { font-size: 12.5px; color: var(--dim); margin-bottom: 10px; }
+  .connect-btn {
+    background: none; color: var(--text); border: 1px solid var(--line);
+    border-radius: 4px; padding: 7px 14px; font: 12.5px inherit; cursor: pointer;
+  }
+  .connect-note { font-size: 11.5px; color: var(--dim); margin-top: 8px; font-style: italic; }
+
+  /* content system */
+  #content-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  #content-input {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 4px; padding: 8px 11px; font: inherit; outline: none;
+  }
+  #content-input:focus { border-color: var(--red); }
+  #content-gen {
+    align-self: flex-end;
+    background: none; color: var(--red); border: 1px solid var(--red-deep);
+    border-radius: 4px; padding: 6px 16px; font: 700 11px var(--mono); letter-spacing: .05em; cursor: pointer;
+  }
+  #content-gen:disabled { opacity: .4; cursor: default; }
+  .post-topic { color: var(--red); font: 700 11px var(--mono); letter-spacing: .05em; }
+  .post-text { font-size: 13px; margin-top: 3px; white-space: pre-wrap; }
+
+  /* settings modal */
+  #settings-dialog dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px; }
+  #settings-dialog dt { color: var(--dim); font: 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; align-self: center; }
+  #settings-dialog dd { font-variant-numeric: tabular-nums; word-break: break-all; }
+  #settings-dialog .buttons { margin-top: 18px; }
+
+  /* approval + settings modals */
+  #overlay, #settings-overlay {
+    position: fixed; inset: 0; background: rgba(4,2,3,.7);
+    display: none; align-items: center; justify-content: center;
+  }
+  #overlay.show, #settings-overlay.show { display: flex; }
+  #dialog, #settings-dialog { width: min(560px, 90vw); }
+  #dialog h3, #settings-dialog h3 { font-size: 14px; margin-bottom: 12px; }
   #dialog code {
     display: block; background: var(--bg); border: 1px solid var(--line);
     border-radius: 4px; padding: 12px; font: 13px var(--mono); margin-bottom: 18px;
     white-space: pre-wrap; word-break: break-all;
   }
-  #dialog .buttons { display: flex; gap: 10px; justify-content: flex-end; }
-  #dialog button { padding: 8px 18px; border-radius: 4px; border: 1px solid var(--line); font: inherit; cursor: pointer; }
+  #dialog .buttons, #settings-dialog .buttons { display: flex; gap: 10px; justify-content: flex-end; }
+  #dialog button, #settings-dialog button { padding: 8px 18px; border-radius: 4px; border: 1px solid var(--line); font: inherit; cursor: pointer; background: none; color: var(--text); }
   #deny { background: none; color: var(--text); }
   #allow { background: var(--ok); color: #06130c; border: 0; font-weight: 700; }
 
@@ -190,6 +242,8 @@
   </div>
   <span class="spacer"></span>
   <button id="voice-toggle" class="icon-btn" type="button" title="Speak replies aloud">🔊</button>
+  <button id="settings-btn" class="pill" type="button">⚙ Settings</button>
+  <div class="pill"><span id="queue-label">Queue: 0</span></div>
   <div class="pill" id="server-pill"><span class="dot"></span><span id="server-label">connecting…</span></div>
 </header>
 
@@ -198,6 +252,28 @@
     <div class="panel">
       <h2>Memories <a id="galaxy-btn">galaxy ✦</a></h2>
       <div id="memories"><div class="empty">nothing stored yet</div></div>
+    </div>
+    <div class="panel">
+      <h2>Expenses <span class="toggle-group" id="expense-period">
+        <button type="button" data-period="day">DAY</button>
+        <button type="button" data-period="week">WEEK</button>
+        <button type="button" class="active" data-period="month">MONTH</button>
+        <button type="button" data-period="year">YEAR</button>
+      </span></h2>
+      <div class="stat-grid">
+        <div class="stat-tile revenue"><div class="label">Revenue</div><div class="value">₹0</div></div>
+        <div class="stat-tile expense"><div class="label">Expense</div><div class="value">₹0</div></div>
+      </div>
+      <div class="net-line">Net <b>+₹0</b></div>
+      <div class="disconnected">Connect Gmail to retrieve your income &amp; expenses automatically.</div>
+      <button class="connect-btn" data-connect="Gmail">Connect Gmail</button>
+      <div class="connect-note" id="expense-note"></div>
+    </div>
+    <div class="panel">
+      <h2>Recent Mail</h2>
+      <div class="disconnected">Connect Gmail to retrieve your recent mail automatically.</div>
+      <button class="connect-btn" data-connect="Gmail">Connect Gmail</button>
+      <div class="connect-note" id="mail-note"></div>
     </div>
   </div>
 
@@ -226,6 +302,14 @@
       <div id="todos"><div class="empty">No tasks for today. Add one above.</div></div>
     </div>
     <div class="panel">
+      <h2>Content System</h2>
+      <form id="content-form">
+        <input id="content-input" placeholder="Generate a post about…" autocomplete="off">
+        <button id="content-gen" type="submit">GENERATE</button>
+      </form>
+      <div id="content-list"><div class="empty">No content yet. Generate a post to see it here.</div></div>
+    </div>
+    <div class="panel">
       <h2>Scheduled</h2>
       <div id="tasks"><div class="empty">no tasks configured</div></div>
     </div>
@@ -245,6 +329,14 @@
       <button id="deny" type="button">Deny</button>
       <button id="allow" type="button">Allow</button>
     </div>
+  </div>
+</div>
+
+<div id="settings-overlay">
+  <div id="settings-dialog" class="panel">
+    <h3>Agent settings <span style="color:var(--dim);font-weight:400;font-size:12px;">(read-only)</span></h3>
+    <dl id="settings-fields"></dl>
+    <div class="buttons"><button id="settings-close" type="button">Close</button></div>
   </div>
 </div>
 
@@ -340,8 +432,26 @@ async function loadState() {
       card.append(label, badge);
       tasks.appendChild(card);
     }
+
+    const content = $("content-list");
+    content.innerHTML = "";
+    if (!state.content.length) content.innerHTML = '<div class="empty">No content yet. Generate a post to see it here.</div>';
+    for (const p of state.content) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const topic = document.createElement("div"); topic.className = "post-topic"; topic.textContent = p.topic;
+      const text = document.createElement("div"); text.className = "post-text"; text.textContent = p.text;
+      const when = document.createElement("div"); when.className = "when"; when.textContent = timeAgo(p.created_at);
+      card.append(topic, text, when);
+      content.appendChild(card);
+    }
+
+    $("queue-label").textContent = "Queue: " + (state.busy ? 1 : 0);
+    lastSettings = state.settings;
   } catch { setOnline(false); }
 }
+
+let lastSettings = {};
 
 $("todo-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -355,6 +465,52 @@ $("todo-form").onsubmit = async (e) => {
   });
   loadState();
 };
+
+$("content-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const topic = $("content-input").value.trim();
+  if (!topic) return;
+  $("content-input").value = "";
+  $("content-gen").disabled = true;
+  $("content-gen").textContent = "…";
+  try {
+    await fetch("/api/content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic }),
+    });
+  } finally {
+    $("content-gen").disabled = false;
+    $("content-gen").textContent = "GENERATE";
+    loadState();
+  }
+};
+
+document.querySelectorAll(".connect-btn").forEach((btn) => {
+  btn.onclick = () => {
+    const note = btn.nextElementSibling;
+    note.textContent = `${btn.dataset.connect} isn't wired up yet — this is a placeholder, same as the reference UI.`;
+  };
+});
+
+$("expense-period").querySelectorAll("button").forEach((btn) => {
+  btn.onclick = () => {
+    $("expense-period").querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+  };
+});
+
+$("settings-btn").onclick = () => {
+  const fields = $("settings-fields");
+  fields.innerHTML = "";
+  for (const [key, value] of Object.entries(lastSettings)) {
+    const dt = document.createElement("dt"); dt.textContent = key.replace(/_/g, " ");
+    const dd = document.createElement("dd"); dd.textContent = String(value);
+    fields.append(dt, dd);
+  }
+  $("settings-overlay").classList.add("show");
+};
+$("settings-close").onclick = () => $("settings-overlay").classList.remove("show");
 
 function showApproval(command) {
   $("command").textContent = command;
