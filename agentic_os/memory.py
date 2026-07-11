@@ -27,7 +27,10 @@ class Memory:
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.db_path)
+        # check_same_thread=False: the web server touches memory from handler
+        # threads; all access is serialized by the caller (CLI is single-threaded,
+        # web.py holds a lock around every kernel/memory operation).
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.executescript(SCHEMA)
         self._conn.commit()
 

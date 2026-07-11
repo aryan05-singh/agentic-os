@@ -11,6 +11,7 @@ agentic OS is made of, each in one readable file:
 | **Tools** | `agentic_os/tools.py` | Shell, workspace files, memory — with a human approval gate and path confinement |
 | **Automation** | `agentic_os/scheduler.py` | Cron-friendly scheduled tasks the agent runs unattended |
 | **Interface** | `agentic_os/__main__.py` | Streaming CLI chat REPL |
+| **Dashboard** | `agentic_os/web.py` | Local web UI — streaming chat, memory browser, task status, shell-approval dialog (stdlib HTTP, zero extra deps) |
 
 The agent loop itself (`agentic_os/kernel.py`) is a deliberate manual
 implementation of the request → tool_use → tool_result cycle, so the entire
@@ -37,6 +38,21 @@ jarvis> You deploy on Fridays only.
 ```
 
 Memory persists across sessions — quit, reopen, and the agent still knows.
+
+## Web dashboard
+
+Prefer a browser over the terminal? The same agent, as a local web app:
+
+```bash
+python -m agentic_os.web --config config.yaml --port 8321
+# open http://127.0.0.1:8321
+```
+
+Streaming chat on the left; live panels for stored memories and scheduled-task
+status on the right. The shell approval gate becomes an Allow/Deny dialog —
+the agent blocks mid-turn until you answer, exactly like the CLI's y/N prompt.
+Built on `http.server` + Server-Sent Events: no web framework, no JS build
+step, no new dependencies.
 
 ## Model configuration
 
