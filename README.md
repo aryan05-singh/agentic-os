@@ -9,6 +9,7 @@ agentic OS is made of, each in one readable file:
 | **Intelligence** | `agentic_os/llm.py` | Claude via the official Anthropic SDK (adaptive thinking, prompt caching, streaming) |
 | **Memory** | `agentic_os/memory.py` | Persistent SQLite memory — the agent `remember`s facts and wakes up with a digest of them in every session |
 | **Tools** | `agentic_os/tools.py` | Shell, workspace files, memory, web fetching — with a human approval gate and path confinement |
+| **Browser** | `agentic_os/browser.py` | Real browser automation (headless Chromium via Playwright) — navigate, click, type, screenshot |
 | **Automation** | `agentic_os/scheduler.py` | Cron-friendly scheduled tasks the agent runs unattended |
 | **Interface** | `agentic_os/__main__.py` | Streaming CLI chat REPL |
 | **Dashboard** | `agentic_os/web.py` | Local web UI — streaming chat, memory browser, task status, shell-approval dialog (stdlib HTTP, zero extra deps) |
@@ -48,6 +49,8 @@ python -m agentic_os.web --config config.yaml --port 8321
 # open http://127.0.0.1:8321
 ```
 
+![dashboard](docs/dashboard.png)
+
 Streaming chat on the left; live panels for stored memories and scheduled-task
 status on the right. The shell approval gate becomes an Allow/Deny dialog —
 the agent blocks mid-turn until you answer, exactly like the CLI's y/N prompt.
@@ -62,6 +65,31 @@ Also in the dashboard:
   clustered by topic, one canvas and zero chart libraries.
 - **Web reading** — the agent has a `fetch_url` tool, so you can paste a link
   and ask about it.
+
+## Browser automation
+
+`fetch_url` reads static pages; the `browser_*` tools drive a real one. The
+agent gets a persistent headless Chromium session (lazy-launched on first use)
+and interacts through **snapshots** — every action returns the page title,
+visible text, and a numbered list of interactive elements, so the model can
+say "click [3]" or type into a field and see the result:
+
+```
+you> go to news.ycombinator.com and open the top story
+jarvis> [browser_goto → snapshot → browser_click [0] → reads the article]
+```
+
+Tools: `browser_goto`, `browser_click`, `browser_type` (with optional
+Enter-to-submit), `browser_read`, `browser_screenshot` (saved into the
+workspace). Setup:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Playwright is optional — everything else works without it, and the tools
+return a clear install hint if it's missing.
 
 ## Model configuration
 

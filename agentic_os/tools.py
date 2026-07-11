@@ -18,6 +18,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Callable
 
+from .browser import BrowserSession
 from .memory import Memory
 
 TOOL_DEFINITIONS = [
@@ -89,7 +90,9 @@ TOOL_DEFINITIONS = [
         "name": "fetch_url",
         "description": (
             "Fetch a web page and return its readable text (scripts/styles stripped). "
-            "Call this when the user shares a URL or the answer needs current web content."
+            "Call this when the user shares a URL or the answer needs current web content. "
+            "For pages that need JavaScript, clicking, or form input, use the browser_* "
+            "tools instead."
         ),
         "input_schema": {
             "type": "object",
@@ -97,6 +100,86 @@ TOOL_DEFINITIONS = [
                 "url": {"type": "string", "description": "http(s) URL to fetch"},
             },
             "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_goto",
+        "description": (
+            "Open a URL in a real headless browser and return a snapshot: title, "
+            "visible text, and a numbered list of interactive elements. The browser "
+            "session persists across calls, so you can navigate, then click and type."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "http(s) URL to open"},
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_click",
+        "description": (
+            "Click an element on the current browser page. Target is an element "
+            "number from the latest snapshot (e.g. '3') or a Playwright selector "
+            "(e.g. 'text=Sign in'). Returns the post-click snapshot."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "description": "Element number from the snapshot, or a selector",
+                },
+            },
+            "required": ["target"],
+        },
+    },
+    {
+        "name": "browser_type",
+        "description": (
+            "Type into an input on the current browser page (clears it first). "
+            "Target is an element number from the latest snapshot or a selector. "
+            "Set press_enter to submit. Returns the post-typing snapshot."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "description": "Element number from the snapshot, or a selector",
+                },
+                "text": {"type": "string", "description": "Text to type"},
+                "press_enter": {
+                    "type": "boolean",
+                    "description": "Press Enter after typing (submit)",
+                },
+            },
+            "required": ["target", "text"],
+        },
+    },
+    {
+        "name": "browser_read",
+        "description": (
+            "Re-read the current browser page and return a fresh snapshot with "
+            "numbered interactive elements. Use after the page changes on its own."
+        ),
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "browser_screenshot",
+        "description": (
+            "Save a full-page screenshot of the current browser page into the "
+            "workspace and return its path."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string",
+                    "description": "Filename inside the workspace (default screenshot.png)",
+                },
+            },
         },
     },
 ]
@@ -134,6 +217,7 @@ class ToolBox:
         self.memory = memory
         self.approve = approve
         self.workspace: Path = config["workspace"]
+        self._browser: BrowserSession | None = None
 
     def execute(self, name: str, args: dict) -> str:
         handler = getattr(self, f"_tool_{name}", None)
@@ -197,3 +281,33 @@ class ToolBox:
             extractor.feed(text)
             text = "\n".join(extractor.parts)
         return text[:12000]
+
+    # -- browser -------------------------------------------------------------
+
+    @property
+    def browser(self) -> BrowserSession:
+        if self._browser is None:
+            self._browser = BrowserSession(
+                self.workspace, timeout=self.config["browser_timeout"]
+            )
+        return self._browser
+
+    def close(self):
+        if self._browser is not None:
+            self._browser.close()
+            self._browser = None
+
+    def _tool_browser_goto(self, url: str) -> str:
+        return self.browser.goto(url)
+
+    def _tool_browser_click(self, target: str) -> str:
+        return self.browser.click(target)
+
+    def _tool_browser_type(self, target: str, text: str, press_enter: bool = False) -> str:
+        return self.browser.type_text(target, text, press_enter)
+
+    def _tool_browser_read(self) -> str:
+        return self.browser.snapshot()
+
+    def _tool_browser_screenshot(self, filename: str = "screenshot.png") -> str:
+        return self.browser.screenshot(filename)

@@ -1,3 +1,6 @@
 anthropic>=0.92.0
 PyYAML>=6.0
 pytest>=8.0
+
+# optional — browser automation (also run: playwright install chromium)
+playwright>=1.45

@@ -21,6 +21,7 @@ DEFAULTS = {
     "require_approval": True,   # ask before shell commands in interactive chat
     "autonomous_shell": False,  # allow shell in unattended scheduled tasks
     "shell_timeout": 120,
+    "browser_timeout": 20,      # seconds per browser action (playwright)
     "tasks": [],
 }
 
