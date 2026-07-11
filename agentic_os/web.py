@@ -5,10 +5,12 @@
 Same philosophy as the rest of the OS: no frameworks. A stdlib ThreadingHTTPServer
 serves one page and three JSON endpoints:
 
-    GET  /            the dashboard (chat + memory + scheduled tasks)
-    POST /api/chat    {"message": ...} -> SSE stream of token/approval/done events
-    POST /api/approve {"allow": bool}  -> resolves a pending shell approval
-    GET  /api/state   agent identity, recent memories, task schedule
+    GET  /                 the dashboard (chat + memory + tasks)
+    POST /api/chat         {"message": ...} -> SSE stream of token/approval/done events
+    POST /api/approve      {"allow": bool}  -> resolves a pending shell approval
+    GET  /api/state        agent identity, recent memories, todos, task schedule
+    POST /api/todos        {"text": ...}    -> add a today-task
+    POST /api/todos/toggle {"id": ...}      -> toggle a today-task done/undone
 
 Shell approval works exactly like the CLI's y/N gate, but over HTTP: the kernel
 blocks mid-turn, the browser shows an Allow/Deny dialog, and the answer flows
@@ -79,6 +81,40 @@ class ChatServer:
         pending["event"].set()
         return True
 
+    # -- todos (Tasks · Today panel) — a plain JSON file in the workspace --
+
+    @property
+    def _todos_path(self) -> Path:
+        return self.config["workspace"] / "todos.json"
+
+    def _load_todos(self) -> list[dict]:
+        if self._todos_path.exists():
+            return json.loads(self._todos_path.read_text())
+        return []
+
+    def add_todo(self, text: str) -> dict:
+        with self.lock:
+            todos = self._load_todos()
+            todo = {
+                "id": max((t["id"] for t in todos), default=0) + 1,
+                "text": text,
+                "done": False,
+                "created_at": int(time.time()),
+            }
+            todos.append(todo)
+            self._todos_path.write_text(json.dumps(todos))
+        return todo
+
+    def toggle_todo(self, todo_id: int) -> bool:
+        with self.lock:
+            todos = self._load_todos()
+            for todo in todos:
+                if todo["id"] == todo_id:
+                    todo["done"] = not todo["done"]
+                    self._todos_path.write_text(json.dumps(todos))
+                    return True
+        return False
+
     # -- request-facing operations --
 
     def chat(self, message: str, sse_writer) -> None:
@@ -115,6 +151,7 @@ class ChatServer:
             "model": self.config["model"],
             "memories": memories,
             "tasks": tasks,
+            "todos": self._load_todos(),
         }
 
 
@@ -171,6 +208,18 @@ def make_handler(server: ChatServer):
                 allow = bool(self._read_body().get("allow"))
                 resolved = server.resolve_approval(allow)
                 self._json({"resolved": resolved})
+            elif self.path == "/api/todos":
+                text = self._read_body().get("text", "").strip()
+                if not text:
+                    self._json({"error": "empty task"}, 400)
+                    return
+                self._json(server.add_todo(text))
+            elif self.path == "/api/todos/toggle":
+                todo_id = self._read_body().get("id")
+                if server.toggle_todo(todo_id):
+                    self._json({"toggled": todo_id})
+                else:
+                    self._json({"error": "no such task"}, 404)
             else:
                 self._json({"error": "not found"}, 404)
 

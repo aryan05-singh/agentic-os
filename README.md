@@ -59,8 +59,13 @@ step, no new dependencies.
 
 Also in the dashboard:
 
-- **Voice mode** — click 🎤 and talk to your agent; toggle 🔊 to have replies
-  spoken aloud (Web Speech API — Chrome/Edge).
+- **The globe** — a rotating wireframe sphere at the center of the command
+  deck; tap it to speak. The state readout under it tracks the agent:
+  IDLE / LISTENING / THINKING / SPEAKING.
+- **Tasks · Today** — a quick add/check-off list, stored as plain JSON in the
+  workspace, next to the scheduler's status panel.
+- **Voice mode** — tap the globe (or 🎤) and talk to your agent; toggle 🔊 to
+  have replies spoken aloud (Web Speech API — Chrome/Edge).
 - **Memory galaxy** — a visual map of everything the agent remembers,
   clustered by topic, one canvas and zero chart libraries.
 - **Web reading** — the agent has a `fetch_url` tool, so you can paste a link

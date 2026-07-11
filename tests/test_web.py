@@ -2,6 +2,7 @@
 
 import json
 import threading
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from types import SimpleNamespace
@@ -70,6 +71,29 @@ def test_state_reports_identity_memories_and_tasks(server):
     assert state["tasks"] == [
         {"name": "brief", "every": "daily", "last_run": None, "due": True}
     ]
+
+
+def test_todos_add_toggle_roundtrip(server):
+    _, base = server
+    with post(f"{base}/api/todos", {"text": "ship the globe"}) as resp:
+        todo = json.loads(resp.read())
+    assert todo["text"] == "ship the globe" and todo["done"] is False
+
+    state = get_json(f"{base}/api/state")
+    assert state["todos"] == [todo]
+
+    post(f"{base}/api/todos/toggle", {"id": todo["id"]})
+    assert get_json(f"{base}/api/state")["todos"][0]["done"] is True
+
+
+def test_todos_reject_empty_and_unknown(server):
+    _, base = server
+    with pytest.raises(urllib.error.HTTPError) as e:
+        post(f"{base}/api/todos", {"text": "  "})
+    assert e.value.code == 400
+    with pytest.raises(urllib.error.HTTPError) as e:
+        post(f"{base}/api/todos/toggle", {"id": 999})
+    assert e.value.code == 404
 
 
 def test_dashboard_page_served(server):

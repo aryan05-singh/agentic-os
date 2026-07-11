@@ -5,140 +5,231 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agentic-os</title>
 <style>
+  /* Command-center theme — deliberately single-theme dark (it's a control room). */
   :root {
-    --bg: #0d1117; --panel: #161b22; --border: #262d37;
-    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff; --accent2: #3fb950;
-    --user-bubble: #1f2937; --danger: #f85149;
+    --bg: #0a0608; --panel: #120a0d; --panel-2: #170c10;
+    --line: #351319; --line-soft: #240f13;
+    --red: #e5484d; --red-deep: #8c2b31; --red-glow: rgba(229,72,77,.35);
+    --text: #f0e7e7; --dim: #9b878a; --ok: #46c98a; --danger: #ff6b6b;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
     background: var(--bg); color: var(--text);
-    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
-    height: 100vh; display: flex; flex-direction: column;
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
   }
+
+  /* ---- header ---- */
   header {
-    display: flex; align-items: baseline; gap: 12px;
-    padding: 14px 22px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 20px; border-bottom: 1px solid var(--line-soft);
   }
-  header h1 { font-size: 18px; font-weight: 650; }
-  header h1::before { content: "⚡ "; }
-  header .model { color: var(--dim); font-size: 13px; }
-  main { flex: 1; display: flex; min-height: 0; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 9px; flex: none;
+    background: linear-gradient(145deg, #e5484d, #7f2229);
+    display: grid; place-items: center; font-size: 17px;
+    box-shadow: 0 0 18px var(--red-glow);
+  }
+  header .id h1 { font-size: 17px; font-weight: 700; letter-spacing: .01em; }
+  header .id .sub { color: var(--dim); font-size: 12px; }
+  header .spacer { flex: 1; }
+  .pill {
+    display: flex; align-items: center; gap: 7px;
+    font: 12px var(--mono); color: var(--dim);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px;
+    background: var(--panel);
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+  .pill.online { color: var(--text); }
+  .pill.online .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .icon-btn {
+    background: var(--panel); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 13px; font-size: 15px; cursor: pointer;
+  }
+  .icon-btn.on { color: var(--red); border-color: var(--red-deep); }
 
-  /* chat column */
-  #chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  #messages { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
-  .msg { max-width: 76%; padding: 10px 14px; border-radius: 12px; white-space: pre-wrap; word-wrap: break-word; }
-  .msg.user { align-self: flex-end; background: var(--user-bubble); border: 1px solid var(--border); }
-  .msg.agent { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
-  .msg.agent.streaming::after { content: "▋"; color: var(--accent); animation: blink 1s step-end infinite; }
-  .msg.error { align-self: center; color: var(--danger); background: none; font-size: 13px; }
-  @keyframes blink { 50% { opacity: 0; } }
-  #composer { display: flex; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border); }
-  #input {
-    flex: 1; background: var(--panel); color: var(--text);
-    border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px;
-    font: inherit; outline: none; resize: none;
+  /* ---- layout ---- */
+  main {
+    flex: 1; min-height: 0; display: grid; gap: 16px; padding: 16px 20px;
+    grid-template-columns: 290px minmax(0,1fr) 320px;
   }
-  #input:focus { border-color: var(--accent); }
-  #send {
-    background: var(--accent); color: #0d1117; border: 0; border-radius: 10px;
-    padding: 0 20px; font: inherit; font-weight: 650; cursor: pointer;
-  }
-  #send:disabled { opacity: .4; cursor: default; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; }
 
-  /* sidebar */
-  aside {
-    width: 320px; border-left: 1px solid var(--border);
-    overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 22px;
+  /* corner-bracket panels */
+  .panel {
+    position: relative; background: var(--panel);
+    border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px;
   }
-  aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin-bottom: 10px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
-  .card .topic { color: var(--accent); font-size: 12px; font-weight: 650; }
-  .card .body { font-size: 13px; }
-  .card .when { color: var(--dim); font-size: 11px; margin-top: 4px; }
-  .task { display: flex; justify-content: space-between; align-items: center; }
-  .task .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--dim); }
-  .task .badge.due { color: var(--accent2); border-color: var(--accent2); }
+  .panel::before, .panel::after {
+    content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none;
+  }
+  .panel::before { top: -1px; left: -1px; border-top: 2px solid var(--red); border-left: 2px solid var(--red); }
+  .panel::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--red); border-right: 2px solid var(--red); }
+  .panel h2 {
+    font: 700 11px var(--mono); letter-spacing: .22em; text-transform: uppercase;
+    color: var(--red); margin-bottom: 12px; display: flex; align-items: baseline; gap: 6px;
+  }
+  .panel h2::before { content: "▸"; }
+  .panel h2 a { margin-left: auto; color: var(--red); font-weight: 400; letter-spacing: .1em; cursor: pointer; text-decoration: none; }
   .empty { color: var(--dim); font-size: 13px; }
 
+  /* memories */
+  .card {
+    background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 4px;
+    padding: 9px 11px; margin-bottom: 8px;
+  }
+  .card .topic { color: var(--red); font: 700 11px var(--mono); letter-spacing: .05em; }
+  .card .body { font-size: 13px; margin-top: 2px; }
+  .card .when { color: var(--dim); font-size: 11px; margin-top: 4px; }
+
+  /* center stage */
+  #stage-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  #stage { position: relative; flex: none; height: 52%; min-height: 300px; }
+  #globe { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  #stage .callsign {
+    position: absolute; top: 6px; left: 0; right: 0; text-align: center;
+    font: 700 15px var(--mono); letter-spacing: .5em; text-transform: uppercase;
+    color: var(--text); pointer-events: none;
+  }
+  #stage .hint {
+    position: absolute; top: 30px; left: 0; right: 0; text-align: center;
+    color: var(--dim); font-size: 12px; pointer-events: none;
+  }
+  #stage .state {
+    position: absolute; bottom: 4px; left: 0; right: 0; text-align: center;
+    font: 700 11px var(--mono); letter-spacing: .35em; color: var(--dim);
+    pointer-events: none;
+  }
+  #stage .state.active { color: var(--red); text-shadow: 0 0 12px var(--red-glow); }
+
+  #messages { flex: 1; overflow-y: auto; padding: 14px 4px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 76%; padding: 9px 13px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-size: 13.5px; }
+  .msg.user { align-self: flex-end; background: #2a1014; border: 1px solid var(--line); }
+  .msg.agent { align-self: flex-start; background: var(--panel); border: 1px solid var(--line-soft); }
+  .msg.agent.streaming::after { content: "▋"; color: var(--red); animation: blink 1s step-end infinite; }
+  .msg.error { align-self: center; color: var(--danger); background: none; font-size: 12.5px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #composer { display: flex; gap: 10px; padding-top: 6px; }
+  #input {
+    flex: 1; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 4px; padding: 11px 14px;
+    font: inherit; outline: none; resize: none;
+  }
+  #input:focus { border-color: var(--red); box-shadow: 0 0 0 1px var(--red-deep); }
+  #send {
+    background: var(--red); color: #16090b; border: 0; border-radius: 4px;
+    padding: 0 22px; font: 700 13px var(--mono); letter-spacing: .1em; cursor: pointer;
+  }
+  #send:disabled { opacity: .35; cursor: default; }
+
+  /* tasks today */
+  #todo-form { display: flex; gap: 8px; margin-bottom: 12px; }
+  #todo-input {
+    flex: 1; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 4px; padding: 8px 11px; font: inherit; outline: none;
+  }
+  #todo-input:focus { border-color: var(--red); }
+  #todo-add {
+    background: none; color: var(--red); border: 1px solid var(--red-deep);
+    border-radius: 4px; width: 34px; font-size: 17px; cursor: pointer;
+  }
+  .todo { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+  .todo:last-child { border-bottom: 0; }
+  .todo .box {
+    width: 15px; height: 15px; flex: none; border: 1px solid var(--red-deep); border-radius: 3px;
+    display: grid; place-items: center; font-size: 11px; color: var(--ok);
+  }
+  .todo.done .box { border-color: var(--ok); }
+  .todo .label { font-size: 13px; }
+  .todo.done .label { color: var(--dim); text-decoration: line-through; }
+
+  /* scheduled tasks */
+  .task { display: flex; justify-content: space-between; align-items: center; }
+  .task .badge {
+    font: 11px var(--mono); padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--dim);
+  }
+  .task .badge.due { color: var(--ok); border-color: var(--ok); }
+
   /* approval modal */
-  #overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.6);
-    display: none; align-items: center; justify-content: center;
-  }
+  #overlay { position: fixed; inset: 0; background: rgba(4,2,3,.7); display: none; align-items: center; justify-content: center; }
   #overlay.show { display: flex; }
-  #dialog {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-    padding: 24px; width: min(560px, 90vw);
-  }
-  #dialog h3 { font-size: 15px; margin-bottom: 12px; }
+  #dialog { width: min(560px, 90vw); }
+  #dialog h3 { font-size: 14px; margin-bottom: 12px; }
   #dialog code {
-    display: block; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 18px;
+    display: block; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 4px; padding: 12px; font: 13px var(--mono); margin-bottom: 18px;
     white-space: pre-wrap; word-break: break-all;
   }
   #dialog .buttons { display: flex; gap: 10px; justify-content: flex-end; }
-  #dialog button { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); font: inherit; cursor: pointer; }
+  #dialog button { padding: 8px 18px; border-radius: 4px; border: 1px solid var(--line); font: inherit; cursor: pointer; }
   #deny { background: none; color: var(--text); }
-  #allow { background: var(--accent2); color: #0d1117; border: 0; font-weight: 650; }
-
-  @media (max-width: 760px) { aside { display: none; } }
-
-  /* voice */
-  header .spacer { flex: 1; }
-  .icon-btn {
-    background: var(--panel); color: var(--dim); border: 1px solid var(--border);
-    border-radius: 10px; padding: 0 14px; font: inherit; font-size: 17px; cursor: pointer;
-  }
-  .icon-btn.on { color: var(--accent); border-color: var(--accent); }
-  #mic.listening { color: var(--danger); border-color: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 50% { transform: scale(1.12); } }
+  #allow { background: var(--ok); color: #06130c; border: 0; font-weight: 700; }
 
   /* memory galaxy */
-  .section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-  .section-head h2 { margin-bottom: 0; }
-  .section-head a { color: var(--accent); font-size: 12px; cursor: pointer; text-decoration: none; }
-  #galaxy-overlay {
-    position: fixed; inset: 0; background: rgba(8,11,16,.96);
-    display: none; flex-direction: column;
-  }
+  #galaxy-overlay { position: fixed; inset: 0; background: rgba(6,3,4,.97); display: none; flex-direction: column; }
   #galaxy-overlay.show { display: flex; }
-  #galaxy-overlay .bar { display: flex; justify-content: space-between; padding: 14px 22px; color: var(--dim); }
-  #galaxy-overlay .bar b { color: var(--text); }
+  #galaxy-overlay .bar { display: flex; justify-content: space-between; padding: 14px 22px; color: var(--dim); font: 12px var(--mono); letter-spacing: .15em; text-transform: uppercase; }
+  #galaxy-overlay .bar b { color: var(--red); }
   #galaxy-overlay .bar span { cursor: pointer; }
   #galaxy { flex: 1; width: 100%; }
+
+  @media (max-width: 1100px) { main { grid-template-columns: minmax(0,1fr) 300px; } #left-col { display: none; } }
+  @media (max-width: 760px) { main { grid-template-columns: minmax(0,1fr); } #right-col { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .msg.agent.streaming::after { animation: none; } }
 </style>
 </head>
 <body>
 <header>
-  <h1 id="agent-name">agentic-os</h1>
-  <span class="model" id="agent-model"></span>
+  <div class="logo">◎</div>
+  <div class="id">
+    <h1 id="agent-name">agentic-os</h1>
+    <div class="sub">Command · Memory · Tasks · <span id="agent-model"></span></div>
+  </div>
   <span class="spacer"></span>
   <button id="voice-toggle" class="icon-btn" type="button" title="Speak replies aloud">🔊</button>
+  <div class="pill" id="server-pill"><span class="dot"></span><span id="server-label">connecting…</span></div>
 </header>
+
 <main>
-  <section id="chat">
-    <div id="messages"></div>
-    <form id="composer">
-      <textarea id="input" rows="1" placeholder="Message your agent… (Enter to send)"></textarea>
-      <button id="mic" class="icon-btn" type="button" title="Talk to your agent">🎤</button>
-      <button id="send" type="submit">Send</button>
-    </form>
-  </section>
-  <aside>
-    <div>
-      <div class="section-head">
-        <h2>Memories</h2>
-        <a id="galaxy-btn">galaxy ✦</a>
-      </div>
+  <div class="col" id="left-col">
+    <div class="panel">
+      <h2>Memories <a id="galaxy-btn">galaxy ✦</a></h2>
       <div id="memories"><div class="empty">nothing stored yet</div></div>
     </div>
-    <div>
-      <h2>Scheduled tasks</h2>
+  </div>
+
+  <div id="stage-col">
+    <div id="stage">
+      <canvas id="globe" title="Tap the globe to speak"></canvas>
+      <div class="callsign" id="callsign"></div>
+      <div class="hint">Tap the globe to speak</div>
+      <div class="state" id="state">IDLE</div>
+    </div>
+    <div id="messages"></div>
+    <form id="composer">
+      <textarea id="input" rows="1" placeholder="Ask anything… (Enter to send)"></textarea>
+      <button id="mic" class="icon-btn" type="button" title="Talk to your agent">🎤</button>
+      <button id="send" type="submit">SEND</button>
+    </form>
+  </div>
+
+  <div class="col" id="right-col">
+    <div class="panel">
+      <h2>Tasks · Today</h2>
+      <form id="todo-form">
+        <input id="todo-input" placeholder="Add a task for today" autocomplete="off">
+        <button id="todo-add" type="submit" title="Add task">+</button>
+      </form>
+      <div id="todos"><div class="empty">No tasks for today. Add one above.</div></div>
+    </div>
+    <div class="panel">
+      <h2>Scheduled</h2>
       <div id="tasks"><div class="empty">no tasks configured</div></div>
     </div>
-  </aside>
+  </div>
 </main>
 
 <div id="galaxy-overlay">
@@ -147,7 +238,7 @@
 </div>
 
 <div id="overlay">
-  <div id="dialog">
+  <div id="dialog" class="panel">
     <h3>The agent wants to run a shell command</h3>
     <code id="command"></code>
     <div class="buttons">
@@ -160,6 +251,12 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const messages = $("messages");
+
+/* ---- agent state machine: IDLE / LISTENING / THINKING / SPEAKING ---- */
+function setState(s) {
+  $("state").textContent = s;
+  $("state").classList.toggle("active", s !== "IDLE");
+}
 
 function addMessage(cls, text) {
   const el = document.createElement("div");
@@ -178,12 +275,19 @@ function timeAgo(ts) {
   return Math.floor(s / 86400) + "d ago";
 }
 
+function setOnline(ok) {
+  $("server-pill").classList.toggle("online", ok);
+  $("server-label").textContent = ok ? "Server online" : "Server offline";
+}
+
 async function loadState() {
   try {
     const state = await (await fetch("/api/state")).json();
+    setOnline(true);
     lastMemories = state.memories;
     $("agent-name").textContent = state.name;
     $("agent-model").textContent = state.model;
+    $("callsign").textContent = state.name.toUpperCase().split("").join(" · ");
     document.title = state.name + " — agentic-os";
 
     const mem = $("memories");
@@ -197,6 +301,26 @@ async function loadState() {
       const when = document.createElement("div"); when.className = "when"; when.textContent = timeAgo(m.created_at);
       card.append(topic, body, when);
       mem.appendChild(card);
+    }
+
+    const todos = $("todos");
+    todos.innerHTML = "";
+    if (!state.todos.length) todos.innerHTML = '<div class="empty">No tasks for today. Add one above.</div>';
+    for (const t of state.todos) {
+      const row = document.createElement("div");
+      row.className = "todo" + (t.done ? " done" : "");
+      const box = document.createElement("span"); box.className = "box"; box.textContent = t.done ? "✓" : "";
+      const label = document.createElement("span"); label.className = "label"; label.textContent = t.text;
+      row.append(box, label);
+      row.onclick = async () => {
+        await fetch("/api/todos/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: t.id }),
+        });
+        loadState();
+      };
+      todos.appendChild(row);
     }
 
     const tasks = $("tasks");
@@ -216,8 +340,21 @@ async function loadState() {
       card.append(label, badge);
       tasks.appendChild(card);
     }
-  } catch { /* server briefly busy; next poll wins */ }
+  } catch { setOnline(false); }
 }
+
+$("todo-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $("todo-input").value.trim();
+  if (!text) return;
+  $("todo-input").value = "";
+  await fetch("/api/todos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  loadState();
+};
 
 function showApproval(command) {
   $("command").textContent = command;
@@ -238,6 +375,7 @@ async function send(text) {
   addMessage("user", text);
   const agentEl = addMessage("agent streaming", "");
   $("send").disabled = true;
+  setState("THINKING");
 
   try {
     const resp = await fetch("/api/chat", {
@@ -272,7 +410,7 @@ async function send(text) {
     addMessage("error", "connection lost: " + e.message);
   } finally {
     agentEl.classList.remove("streaming");
-    if (!agentEl.textContent) agentEl.remove();
+    if (!agentEl.textContent) { agentEl.remove(); setState("IDLE"); }
     else speak(agentEl.textContent);
     $("send").disabled = false;
     $("input").focus();
@@ -294,21 +432,26 @@ $("input").onkeydown = (e) => {
   }
 };
 
-// ---- voice: speak replies aloud ----
+/* ---- voice: speak replies aloud ---- */
 let voiceOn = false;
 $("voice-toggle").onclick = () => {
   voiceOn = !voiceOn;
   $("voice-toggle").classList.toggle("on", voiceOn);
-  if (!voiceOn) speechSynthesis.cancel();
+  if (!voiceOn) { speechSynthesis.cancel(); setState("IDLE"); }
 };
 function speak(text) {
-  if (!voiceOn || !("speechSynthesis" in window)) return;
+  if (!voiceOn || !("speechSynthesis" in window)) { setState("IDLE"); return; }
   speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  const u = new SpeechSynthesisUtterance(text);
+  u.onstart = () => setState("SPEAKING");
+  u.onend = () => setState("IDLE");
+  u.onerror = () => setState("IDLE");
+  speechSynthesis.speak(u);
 }
 
-// ---- voice: talk to the agent (Web Speech API; Chrome/Edge) ----
+/* ---- voice: talk to the agent (Web Speech API; Chrome/Edge) ---- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let startListening = null;
 if (!SR) {
   $("mic").style.display = "none";
 } else {
@@ -320,17 +463,115 @@ if (!SR) {
     const text = e.results[0][0].transcript.trim();
     if (text && !$("send").disabled) send(text);
   };
-  rec.onend = () => { listening = false; $("mic").classList.remove("listening"); };
-  rec.onerror = () => { listening = false; $("mic").classList.remove("listening"); };
-  $("mic").onclick = () => {
+  rec.onend = () => {
+    listening = false;
+    if ($("state").textContent === "LISTENING") setState("IDLE");
+  };
+  rec.onerror = () => { listening = false; setState("IDLE"); };
+  startListening = () => {
     if (listening) { rec.stop(); return; }
+    if ($("send").disabled) return;
     listening = true;
-    $("mic").classList.add("listening");
+    setState("LISTENING");
     rec.start();
   };
+  $("mic").onclick = startListening;
 }
 
-// ---- memory galaxy ----
+/* ---- the globe: rotating wireframe sphere, tap to speak ---- */
+const globe = $("globe");
+const gctx = globe.getContext("2d");
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let rot = 0;
+
+globe.onclick = () => { if (startListening) startListening(); else $("input").focus(); };
+
+function drawGlobe() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = globe.clientWidth, h = globe.clientHeight;
+  if (globe.width !== w * dpr) { globe.width = w * dpr; globe.height = h * dpr; }
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gctx.clearRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2 + 8;
+  const R = Math.min(w, h) * 0.44;
+  const tilt = -0.32;
+  const active = $("state").textContent !== "IDLE";
+
+  // ambient glow behind the sphere
+  const glow = gctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R * 1.5);
+  glow.addColorStop(0, active ? "rgba(229,72,77,.16)" : "rgba(229,72,77,.08)");
+  glow.addColorStop(1, "rgba(229,72,77,0)");
+  gctx.fillStyle = glow;
+  gctx.fillRect(0, 0, w, h);
+
+  const project = (lat, lon) => {
+    const x0 = Math.cos(lat) * Math.sin(lon + rot);
+    const y0 = Math.sin(lat);
+    const z0 = Math.cos(lat) * Math.cos(lon + rot);
+    const y1 = y0 * Math.cos(tilt) - z0 * Math.sin(tilt);
+    const z1 = y0 * Math.sin(tilt) + z0 * Math.cos(tilt);
+    return { x: cx + x0 * R, y: cy - y1 * R, z: z1 };
+  };
+
+  // wireframe: latitude + longitude lines as depth-faded red strokes
+  gctx.lineWidth = 1;
+  for (let latDeg = -75; latDeg <= 75; latDeg += 15) {
+    const lat = (latDeg * Math.PI) / 180;
+    let prev = null;
+    for (let lonDeg = 0; lonDeg <= 360; lonDeg += 6) {
+      const p = project(lat, (lonDeg * Math.PI) / 180);
+      if (prev && p.z > -0.15 && prev.z > -0.15) {
+        gctx.strokeStyle = `rgba(190,45,52,${0.06 + Math.max(0, p.z) * 0.22})`;
+        gctx.beginPath(); gctx.moveTo(prev.x, prev.y); gctx.lineTo(p.x, p.y); gctx.stroke();
+      }
+      prev = p;
+    }
+  }
+  for (let lonDeg = 0; lonDeg < 360; lonDeg += 15) {
+    const lon = (lonDeg * Math.PI) / 180;
+    let prev = null;
+    for (let latDeg = -90; latDeg <= 90; latDeg += 6) {
+      const p = project((latDeg * Math.PI) / 180, lon);
+      if (prev && p.z > -0.15 && prev.z > -0.15) {
+        gctx.strokeStyle = `rgba(190,45,52,${0.06 + Math.max(0, p.z) * 0.22})`;
+        gctx.beginPath(); gctx.moveTo(prev.x, prev.y); gctx.lineTo(p.x, p.y); gctx.stroke();
+      }
+      prev = p;
+    }
+  }
+
+  // vertex dots — brighter on the near side
+  for (let latDeg = -75; latDeg <= 75; latDeg += 15) {
+    for (let lonDeg = 0; lonDeg < 360; lonDeg += 15) {
+      const p = project((latDeg * Math.PI) / 180, (lonDeg * Math.PI) / 180);
+      if (p.z < -0.05) continue;
+      gctx.fillStyle = `rgba(240,231,231,${0.25 + p.z * 0.6})`;
+      gctx.fillRect(p.x - 0.8, p.y - 0.8, 1.6, 1.6);
+    }
+  }
+
+  // one bold orbit ring, slightly offset — the video's signature stroke
+  gctx.strokeStyle = active ? "rgba(229,72,77,.8)" : "rgba(229,72,77,.5)";
+  gctx.lineWidth = 1.6;
+  let prev = null;
+  for (let lonDeg = 0; lonDeg <= 360; lonDeg += 4) {
+    const p = project(0.22, (lonDeg * Math.PI) / 180 + rot * 0.4);
+    if (prev && p.z > -0.4 && prev.z > -0.4) {
+      gctx.beginPath(); gctx.moveTo(prev.x, prev.y); gctx.lineTo(p.x, p.y); gctx.stroke();
+    }
+    prev = p;
+  }
+
+  if (!reducedMotion) {
+    rot += 0.0022;
+    requestAnimationFrame(drawGlobe);
+  }
+}
+requestAnimationFrame(drawGlobe);
+window.addEventListener("resize", () => { if (reducedMotion) requestAnimationFrame(drawGlobe); });
+
+/* ---- memory galaxy ---- */
 let lastMemories = [];
 
 function drawGalaxy() {
@@ -342,9 +583,8 @@ function drawGalaxy() {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);
 
-  // starfield
   for (let i = 0; i < 140; i++) {
-    ctx.fillStyle = `rgba(230,237,243,${0.05 + Math.random() * 0.35})`;
+    ctx.fillStyle = `rgba(240,231,231,${0.05 + Math.random() * 0.35})`;
     ctx.fillRect(Math.random() * w, Math.random() * h, 1.3, 1.3);
   }
 
@@ -357,12 +597,11 @@ function drawGalaxy() {
   const topics = [...groups.keys()];
   const R = Math.min(w, h) * 0.32;
 
-  // center: the agent
-  ctx.fillStyle = "#58a6ff";
-  ctx.shadowColor = "#58a6ff"; ctx.shadowBlur = 24;
+  ctx.fillStyle = "#e5484d";
+  ctx.shadowColor = "#e5484d"; ctx.shadowBlur = 24;
   ctx.beginPath(); ctx.arc(cx, cy, 14, 0, 7); ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "#e6edf3";
+  ctx.fillStyle = "#f0e7e7";
   ctx.font = "600 14px system-ui";
   ctx.textAlign = "center";
   ctx.fillText($("agent-name").textContent, cx, cy + 34);
@@ -372,14 +611,14 @@ function drawGalaxy() {
     const tx = cx + Math.cos(angle) * R;
     const ty = cy + Math.sin(angle) * R;
 
-    ctx.strokeStyle = "rgba(88,166,255,.25)";
+    ctx.strokeStyle = "rgba(229,72,77,.25)";
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tx, ty); ctx.stroke();
 
-    ctx.fillStyle = "#3fb950";
-    ctx.shadowColor = "#3fb950"; ctx.shadowBlur = 12;
+    ctx.fillStyle = "#46c98a";
+    ctx.shadowColor = "#46c98a"; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.arc(tx, ty, 7, 0, 7); ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = "#9b878a";
     ctx.font = "12px system-ui";
     ctx.fillText(topic, tx, ty - 14);
 
@@ -388,15 +627,15 @@ function drawGalaxy() {
       const a2 = angle + ((j - (mems.length - 1) / 2) * 0.5);
       const mx = tx + Math.cos(a2) * 42;
       const my = ty + Math.sin(a2) * 42;
-      ctx.strokeStyle = "rgba(63,185,80,.25)";
+      ctx.strokeStyle = "rgba(70,201,138,.25)";
       ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(mx, my); ctx.stroke();
-      ctx.fillStyle = "rgba(230,237,243,.85)";
+      ctx.fillStyle = "rgba(240,231,231,.85)";
       ctx.beginPath(); ctx.arc(mx, my, 3, 0, 7); ctx.fill();
     });
   });
 
   if (!topics.length) {
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = "#9b878a";
     ctx.font = "14px system-ui";
     ctx.fillText("nothing stored yet — tell your agent something to remember", cx, cy + 70);
   }
