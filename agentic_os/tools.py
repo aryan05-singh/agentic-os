@@ -13,6 +13,8 @@ Safety model:
 from __future__ import annotations
 
 import subprocess
+import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Callable
 
@@ -83,7 +85,44 @@ TOOL_DEFINITIONS = [
             "required": ["query"],
         },
     },
+    {
+        "name": "fetch_url",
+        "description": (
+            "Fetch a web page and return its readable text (scripts/styles stripped). "
+            "Call this when the user shares a URL or the answer needs current web content."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "http(s) URL to fetch"},
+            },
+            "required": ["url"],
+        },
+    },
 ]
+
+
+class _TextExtractor(HTMLParser):
+    """Collapse an HTML document to its visible text."""
+
+    SKIP = {"script", "style", "noscript", "template"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.SKIP:
+            self._skip_depth += 1
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP and self._skip_depth:
+            self._skip_depth -= 1
+
+    def handle_data(self, data):
+        if not self._skip_depth and data.strip():
+            self.parts.append(data.strip())
 
 
 class ToolBox:
@@ -141,3 +180,20 @@ class ToolBox:
         if not rows:
             return "no matching memories"
         return "\n".join(f"[{r['topic']}] {r['content']}" for r in rows)
+
+    def _tool_fetch_url(self, url: str) -> str:
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"only http(s) URLs are allowed: {url}")
+        req = urllib.request.Request(url, headers={"User-Agent": "agentic-os/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            raw = resp.read(2_000_000)
+        charset = "utf-8"
+        if "charset=" in content_type:
+            charset = content_type.split("charset=")[-1].split(";")[0].strip()
+        text = raw.decode(charset, errors="replace")
+        if "html" in content_type or text.lstrip()[:1] == "<":
+            extractor = _TextExtractor()
+            extractor.feed(text)
+            text = "\n".join(extractor.parts)
+        return text[:12000]

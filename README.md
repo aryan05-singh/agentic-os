@@ -8,7 +8,7 @@ agentic OS is made of, each in one readable file:
 |---|---|---|
 | **Intelligence** | `agentic_os/llm.py` | Claude via the official Anthropic SDK (adaptive thinking, prompt caching, streaming) |
 | **Memory** | `agentic_os/memory.py` | Persistent SQLite memory — the agent `remember`s facts and wakes up with a digest of them in every session |
-| **Tools** | `agentic_os/tools.py` | Shell, workspace files, memory — with a human approval gate and path confinement |
+| **Tools** | `agentic_os/tools.py` | Shell, workspace files, memory, web fetching — with a human approval gate and path confinement |
 | **Automation** | `agentic_os/scheduler.py` | Cron-friendly scheduled tasks the agent runs unattended |
 | **Interface** | `agentic_os/__main__.py` | Streaming CLI chat REPL |
 | **Dashboard** | `agentic_os/web.py` | Local web UI — streaming chat, memory browser, task status, shell-approval dialog (stdlib HTTP, zero extra deps) |
@@ -53,6 +53,15 @@ status on the right. The shell approval gate becomes an Allow/Deny dialog —
 the agent blocks mid-turn until you answer, exactly like the CLI's y/N prompt.
 Built on `http.server` + Server-Sent Events: no web framework, no JS build
 step, no new dependencies.
+
+Also in the dashboard:
+
+- **Voice mode** — click 🎤 and talk to your agent; toggle 🔊 to have replies
+  spoken aloud (Web Speech API — Chrome/Edge).
+- **Memory galaxy** — a visual map of everything the agent remembers,
+  clustered by topic, one canvas and zero chart libraries.
+- **Web reading** — the agent has a `fetch_url` tool, so you can paste a link
+  and ask about it.
 
 ## Model configuration
 
