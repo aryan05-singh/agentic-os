@@ -20,6 +20,25 @@ control flow of "an agent" fits on one screen.
 
 ## Quick start
 
+On your own machine, or a friend's — two scripts, no manual steps:
+
+```bash
+git clone https://github.com/aryan05-singh/agentic-os.git
+cd agentic-os
+./setup.sh   # one-time: venv, dependencies, config.yaml, your API key
+./run.sh     # every time: pick CLI chat or web dashboard
+```
+
+`setup.sh` creates an isolated `.venv`, copies `config.example.yaml` to
+`config.yaml` (edit it for your agent's name/personality), and asks for your
+[Anthropic API key](https://console.anthropic.com/) once, saving it to a
+local `.env` (never committed — each person needs their own key). `run.sh`
+activates the venv, loads `.env`, and lets you choose `1` for the terminal
+chat or `2` for the web dashboard — or skip the prompt with `./run.sh cli` /
+`./run.sh web`.
+
+Prefer doing it by hand?
+
 ```bash
 pip install -r requirements.txt
 cp config.example.yaml config.yaml   # edit name/personality/tasks
@@ -45,7 +64,8 @@ Memory persists across sessions — quit, reopen, and the agent still knows.
 Prefer a browser over the terminal? The same agent, as a local web app:
 
 ```bash
-python -m agentic_os.web --config config.yaml --port 8321
+./run.sh web
+# or: python -m agentic_os.web --config config.yaml --port 8321
 # open http://127.0.0.1:8321
 ```
 
