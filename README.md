@@ -92,7 +92,10 @@ Also in the dashboard:
   and ask about it.
 - **Content System** — type a topic, hit Generate, and a one-shot LLM call
   (separate from your chat history) writes a short post and stores it in
-  `content.json`. No hashtag spam, just the text.
+  `content.json`. No hashtag spam, just the text. If `twitter_api_key` etc.
+  are set (X Developer Portal, app perms Read+Write), each post gets a
+  **POST TO X** button that publishes it via OAuth 1.0a-signed requests —
+  no SDK, no interactive login, just the four static credentials.
 - **Recent Mail** — real, read-only Gmail via OAuth once `gmail_client_id` /
   `gmail_client_secret` are set in config (Google Cloud Console → OAuth client,
   Desktop app type, `gmail.readonly` scope, add yourself as a test user).

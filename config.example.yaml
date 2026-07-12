@@ -23,6 +23,14 @@ browser_timeout: 20       # seconds per browser action (needs: pip install playw
 # gmail_client_id: xxxxx.apps.googleusercontent.com    # Desktop-app OAuth client, enables Recent Mail
 # gmail_client_secret: GOCSPX-xxxxx                     # from Google Cloud Console > Credentials
 
+# X (Twitter) Developer Portal > your App > Keys and tokens. App perms must
+# be set to Read+Write (and Access Token regenerated after that change) or
+# posting will fail with a 403.
+# twitter_api_key: xxxxx
+# twitter_api_secret: xxxxx
+# twitter_access_token: xxxxx
+# twitter_access_token_secret: xxxxx
+
 # Scheduled tasks — run one pass via cron:
 #   */30 * * * * cd /path/to/agentic-os && python3 -m agentic_os.scheduler --config config.yaml
 tasks:

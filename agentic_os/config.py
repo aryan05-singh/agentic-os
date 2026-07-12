@@ -24,6 +24,10 @@ DEFAULTS = {
     "browser_timeout": 20,      # seconds per browser action (playwright)
     "gmail_client_id": None,      # OAuth client id (Desktop app type) — enables Recent Mail
     "gmail_client_secret": None,  # OAuth client secret, paired with gmail_client_id
+    "twitter_api_key": None,             # X Developer Portal — Consumer Key
+    "twitter_api_secret": None,          # X Developer Portal — Consumer Secret
+    "twitter_access_token": None,        # X Developer Portal — Access Token (needs Read+Write app perms)
+    "twitter_access_token_secret": None, # X Developer Portal — Access Token Secret
     "tasks": [],
 }
 

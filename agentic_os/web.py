@@ -12,6 +12,7 @@ serves one page and three JSON endpoints:
     POST /api/todos        {"text": ...}    -> add a today-task
     POST /api/todos/toggle {"id": ...}      -> toggle a today-task done/undone
     POST /api/content      {"topic": ...}   -> generate a short post, store + return it
+    POST /api/content/publish  {"id"} -> post that content's text to X (Twitter)
     POST /api/expenses         {"amount", "type": "revenue"|"expense", "note"} -> log an entry
     POST /api/expenses/update  {"id", "amount", "type", "note"} -> edit an entry
     POST /api/expenses/delete  {"id"} -> remove an entry
@@ -39,6 +40,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from . import twitter
 from .config import load_config
 from .gmail import GmailClient
 from .kernel import Kernel
@@ -166,6 +168,18 @@ class ChatServer:
             self._content_path.write_text(json.dumps(posts[:20]))
         return post
 
+    def publish_content(self, content_id: int) -> dict:
+        """Posts a generated post's text to X. Raises RuntimeError on failure."""
+        with self.lock:
+            posts = self._load_content()
+            post = next((p for p in posts if p["id"] == content_id), None)
+            if post is None:
+                raise ValueError(f"no such content #{content_id}")
+            result = twitter.post_tweet(self.config, post["text"])
+            post["tweet_url"] = result["url"]
+            self._content_path.write_text(json.dumps(posts))
+        return post
+
     # -- expenses — manual entry (see module docstring for why not Gmail-parsed) --
 
     @property
@@ -259,6 +273,7 @@ class ChatServer:
             "tasks": tasks,
             "todos": self._load_todos(),
             "content": self._load_content(),
+            "twitter_configured": twitter.configured(self.config),
             "expenses": self._load_expenses(),
             "gmail": self._gmail_state(),
             "busy": self._sse is not None,
@@ -368,6 +383,17 @@ def make_handler(server: ChatServer):
                     return
                 try:
                     self._json(server.generate_content(topic))
+                except Exception as e:  # noqa: BLE001 — surface to the page
+                    self._json({"error": str(e)}, 500)
+            elif self.path == "/api/content/publish":
+                content_id = self._read_body().get("id")
+                if not isinstance(content_id, int):
+                    self._json({"error": "invalid id"}, 400)
+                    return
+                try:
+                    self._json(server.publish_content(content_id))
+                except ValueError as e:
+                    self._json({"error": str(e)}, 404)
                 except Exception as e:  # noqa: BLE001 — surface to the page
                     self._json({"error": str(e)}, 500)
             elif self.path == "/api/expenses":

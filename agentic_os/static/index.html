@@ -235,6 +235,13 @@
   #content-gen:disabled { opacity: .4; cursor: default; }
   .post-topic { color: var(--red); font: 700 11px var(--mono); letter-spacing: .05em; }
   .post-text { font-size: 13px; margin-top: 3px; white-space: pre-wrap; }
+  .post-publish-btn {
+    margin-top: 8px; background: none; color: var(--red); border: 1px solid var(--red-deep);
+    border-radius: 4px; padding: 5px 12px; font: 700 10.5px var(--mono); letter-spacing: .05em; cursor: pointer;
+  }
+  .post-publish-btn:disabled { opacity: .5; cursor: default; }
+  .post-tweet-link { display: inline-block; margin-top: 8px; font-size: 11.5px; color: var(--ok); text-decoration: none; }
+  .post-tweet-link:hover { text-decoration: underline; }
 
   /* settings modal */
   #settings-dialog dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px; }
@@ -497,6 +504,43 @@ async function loadState() {
       const text = document.createElement("div"); text.className = "post-text"; text.textContent = p.text;
       const when = document.createElement("div"); when.className = "when"; when.textContent = timeAgo(p.created_at);
       card.append(topic, text, when);
+
+      if (p.tweet_url) {
+        const link = document.createElement("a");
+        link.className = "post-tweet-link";
+        link.href = p.tweet_url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = "Posted to X ↗";
+        card.appendChild(link);
+      } else if (state.twitter_configured) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "post-publish-btn";
+        btn.textContent = "POST TO X";
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = "…";
+          try {
+            const resp = await fetch("/api/content/publish", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: p.id }),
+            });
+            const result = await resp.json();
+            if (result.error) {
+              btn.disabled = false;
+              btn.textContent = "POST TO X";
+              alert("Couldn't post: " + result.error);
+              return;
+            }
+          } finally {
+            loadState();
+          }
+        };
+        card.appendChild(btn);
+      }
+
       content.appendChild(card);
     }
 
