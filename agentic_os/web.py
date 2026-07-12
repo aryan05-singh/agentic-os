@@ -12,10 +12,12 @@ serves one page and three JSON endpoints:
     POST /api/todos        {"text": ...}    -> add a today-task
     POST /api/todos/toggle {"id": ...}      -> toggle a today-task done/undone
     POST /api/content      {"topic": ...}   -> generate a short post, store + return it
+    POST /api/expenses     {"amount", "type": "revenue"|"expense", "note"} -> log an entry
 
 Recent Mail is backed by a real (read-only) Gmail OAuth connection when
-gmail_client_id/secret are set in config; Expenses stays an honest empty-state
-panel (parsing spend out of email is out of scope). See:
+gmail_client_id/secret are set in config. Expenses is manual entry, not Gmail
+parsing — transaction alerts mostly land as SMS, not email, so there's no
+reliable signal to parse. See:
 
     GET  /api/gmail/connect   redirect to Google's consent screen
     GET  /api/gmail/callback  OAuth redirect target, saves the token
@@ -162,6 +164,31 @@ class ChatServer:
             self._content_path.write_text(json.dumps(posts[:20]))
         return post
 
+    # -- expenses — manual entry (see module docstring for why not Gmail-parsed) --
+
+    @property
+    def _expenses_path(self) -> Path:
+        return self.config["workspace"] / "expenses.json"
+
+    def _load_expenses(self) -> list[dict]:
+        if self._expenses_path.exists():
+            return json.loads(self._expenses_path.read_text())
+        return []
+
+    def add_expense(self, amount: float, kind: str, note: str) -> dict:
+        with self.lock:
+            entries = self._load_expenses()
+            entry = {
+                "id": max((e["id"] for e in entries), default=0) + 1,
+                "amount": amount,
+                "type": kind,
+                "note": note,
+                "created_at": int(time.time()),
+            }
+            entries.append(entry)
+            self._expenses_path.write_text(json.dumps(entries))
+        return entry
+
     # -- request-facing operations --
 
     def chat(self, message: str, sse_writer) -> None:
@@ -209,6 +236,7 @@ class ChatServer:
             "tasks": tasks,
             "todos": self._load_todos(),
             "content": self._load_content(),
+            "expenses": self._load_expenses(),
             "gmail": self._gmail_state(),
             "busy": self._sse is not None,
             "settings": {
@@ -319,6 +347,18 @@ def make_handler(server: ChatServer):
                     self._json(server.generate_content(topic))
                 except Exception as e:  # noqa: BLE001 — surface to the page
                     self._json({"error": str(e)}, 500)
+            elif self.path == "/api/expenses":
+                body = self._read_body()
+                try:
+                    amount = float(body.get("amount"))
+                except (TypeError, ValueError):
+                    amount = 0
+                kind = body.get("type")
+                if amount <= 0 or kind not in ("revenue", "expense"):
+                    self._json({"error": "invalid expense"}, 400)
+                    return
+                note = str(body.get("note", "")).strip()
+                self._json(server.add_expense(amount, kind, note))
             else:
                 self._json({"error": "not found"}, 404)
 
