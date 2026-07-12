@@ -12,7 +12,9 @@ serves one page and three JSON endpoints:
     POST /api/todos        {"text": ...}    -> add a today-task
     POST /api/todos/toggle {"id": ...}      -> toggle a today-task done/undone
     POST /api/content      {"topic": ...}   -> generate a short post, store + return it
-    POST /api/expenses     {"amount", "type": "revenue"|"expense", "note"} -> log an entry
+    POST /api/expenses         {"amount", "type": "revenue"|"expense", "note"} -> log an entry
+    POST /api/expenses/update  {"id", "amount", "type", "note"} -> edit an entry
+    POST /api/expenses/delete  {"id"} -> remove an entry
 
 Recent Mail is backed by a real (read-only) Gmail OAuth connection when
 gmail_client_id/secret are set in config. Expenses is manual entry, not Gmail
@@ -189,6 +191,27 @@ class ChatServer:
             self._expenses_path.write_text(json.dumps(entries))
         return entry
 
+    def update_expense(self, expense_id: int, amount: float, kind: str, note: str) -> dict | None:
+        with self.lock:
+            entries = self._load_expenses()
+            for entry in entries:
+                if entry["id"] == expense_id:
+                    entry["amount"] = amount
+                    entry["type"] = kind
+                    entry["note"] = note
+                    self._expenses_path.write_text(json.dumps(entries))
+                    return entry
+        return None
+
+    def delete_expense(self, expense_id: int) -> bool:
+        with self.lock:
+            entries = self._load_expenses()
+            remaining = [e for e in entries if e["id"] != expense_id]
+            if len(remaining) == len(entries):
+                return False
+            self._expenses_path.write_text(json.dumps(remaining))
+        return True
+
     # -- request-facing operations --
 
     def chat(self, message: str, sse_writer) -> None:
@@ -359,6 +382,29 @@ def make_handler(server: ChatServer):
                     return
                 note = str(body.get("note", "")).strip()
                 self._json(server.add_expense(amount, kind, note))
+            elif self.path == "/api/expenses/update":
+                body = self._read_body()
+                expense_id = body.get("id")
+                try:
+                    amount = float(body.get("amount"))
+                except (TypeError, ValueError):
+                    amount = 0
+                kind = body.get("type")
+                if not isinstance(expense_id, int) or amount <= 0 or kind not in ("revenue", "expense"):
+                    self._json({"error": "invalid expense"}, 400)
+                    return
+                note = str(body.get("note", "")).strip()
+                updated = server.update_expense(expense_id, amount, kind, note)
+                if updated is None:
+                    self._json({"error": "no such expense"}, 404)
+                else:
+                    self._json(updated)
+            elif self.path == "/api/expenses/delete":
+                expense_id = self._read_body().get("id")
+                if server.delete_expense(expense_id):
+                    self._json({"deleted": expense_id})
+                else:
+                    self._json({"error": "no such expense"}, 404)
             else:
                 self._json({"error": "not found"}, 404)
 
