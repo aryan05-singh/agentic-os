@@ -12,7 +12,9 @@ Safety model:
 
 from __future__ import annotations
 
+import json
 import subprocess
+import time
 import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
@@ -84,6 +86,23 @@ TOOL_DEFINITIONS = [
                 "query": {"type": "string", "description": "2-5 keywords"},
             },
             "required": ["query"],
+        },
+    },
+    {
+        "name": "log_expense",
+        "description": (
+            "Log a revenue or expense entry (e.g. \"add 250 expense for lunch\", "
+            "\"log 5000 revenue from freelance work\"). Shows up on the dashboard's "
+            "Expenses panel immediately."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amount": {"type": "number", "description": "Positive amount"},
+                "kind": {"type": "string", "enum": ["revenue", "expense"]},
+                "note": {"type": "string", "description": "Short description, e.g. 'lunch'"},
+            },
+            "required": ["amount", "kind"],
         },
     },
     {
@@ -264,6 +283,24 @@ class ToolBox:
         if not rows:
             return "no matching memories"
         return "\n".join(f"[{r['topic']}] {r['content']}" for r in rows)
+
+    def _tool_log_expense(self, amount: float, kind: str, note: str = "") -> str:
+        if kind not in ("revenue", "expense"):
+            raise ValueError(f"kind must be 'revenue' or 'expense', got {kind!r}")
+        if amount <= 0:
+            raise ValueError("amount must be positive")
+        path = self.workspace / "expenses.json"
+        entries = json.loads(path.read_text()) if path.exists() else []
+        entry = {
+            "id": max((e["id"] for e in entries), default=0) + 1,
+            "amount": amount,
+            "type": kind,
+            "note": note,
+            "created_at": int(time.time()),
+        }
+        entries.append(entry)
+        path.write_text(json.dumps(entries))
+        return f"logged {kind} #{entry['id']}: ₹{amount:g}" + (f" ({note})" if note else "")
 
     def _tool_fetch_url(self, url: str) -> str:
         if not url.startswith(("http://", "https://")):

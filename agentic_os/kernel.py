@@ -27,7 +27,10 @@ def build_system_prompt(config: dict, memory: Memory) -> str:
         f"{memory.digest()}\n\n"
         "When the user shares a durable fact, preference, or decision, store it "
         "with the remember tool. Use recall before claiming you don't know "
-        "something about the user. Be concise; lead with the outcome."
+        "something about the user. When the user mentions spending or earning "
+        "money (e.g. 'paid 200 for lunch', 'got 5000 from a client'), log it "
+        "with the log_expense tool without being asked. Be concise; lead with "
+        "the outcome."
     )
 
 
