@@ -89,6 +89,21 @@ TOOL_DEFINITIONS = [
         },
     },
     {
+        "name": "add_task",
+        "description": (
+            "Add a task to today's task list (e.g. \"add a task to review the PR\", "
+            "\"remind me to call the bank today\"). Shows up on the dashboard's "
+            "Tasks · Today panel immediately."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "The task text"},
+            },
+            "required": ["text"],
+        },
+    },
+    {
         "name": "log_expense",
         "description": (
             "Log a revenue or expense entry (e.g. \"add 250 expense for lunch\", "
@@ -283,6 +298,22 @@ class ToolBox:
         if not rows:
             return "no matching memories"
         return "\n".join(f"[{r['topic']}] {r['content']}" for r in rows)
+
+    def _tool_add_task(self, text: str) -> str:
+        text = text.strip()
+        if not text:
+            raise ValueError("task text cannot be empty")
+        path = self.workspace / "todos.json"
+        todos = json.loads(path.read_text()) if path.exists() else []
+        todo = {
+            "id": max((t["id"] for t in todos), default=0) + 1,
+            "text": text,
+            "done": False,
+            "created_at": int(time.time()),
+        }
+        todos.append(todo)
+        path.write_text(json.dumps(todos))
+        return f"added task #{todo['id']}: {text}"
 
     def _tool_log_expense(self, amount: float, kind: str, note: str = "") -> str:
         if kind not in ("revenue", "expense"):

@@ -29,8 +29,10 @@ def build_system_prompt(config: dict, memory: Memory) -> str:
         "with the remember tool. Use recall before claiming you don't know "
         "something about the user. When the user mentions spending or earning "
         "money (e.g. 'paid 200 for lunch', 'got 5000 from a client'), log it "
-        "with the log_expense tool without being asked. Be concise; lead with "
-        "the outcome."
+        "with the log_expense tool without being asked. When the user asks to "
+        "be reminded of something or to add a task (e.g. 'add a task to review "
+        "the PR', 'remind me to call the bank'), use the add_task tool without "
+        "being asked. Be concise; lead with the outcome."
     )
 
 
