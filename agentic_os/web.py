@@ -13,8 +13,12 @@ serves one page and three JSON endpoints:
     POST /api/todos/toggle {"id": ...}      -> toggle a today-task done/undone
     POST /api/content      {"topic": ...}   -> generate a short post, store + return it
 
-Expenses and Recent Mail are honest empty-state panels (no Gmail wiring yet,
-same as the reference UI's own disconnected state) — no endpoints needed.
+Recent Mail is backed by a real (read-only) Gmail OAuth connection when
+gmail_client_id/secret are set in config; Expenses stays an honest empty-state
+panel (parsing spend out of email is out of scope). See:
+
+    GET  /api/gmail/connect   redirect to Google's consent screen
+    GET  /api/gmail/callback  OAuth redirect target, saves the token
 
 Shell approval works exactly like the CLI's y/N gate, but over HTTP: the kernel
 blocks mid-turn, the browser shows an Allow/Deny dialog, and the answer flows
@@ -29,8 +33,10 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from .config import load_config
+from .gmail import GmailClient
 from .kernel import Kernel
 from .llm import make_client, request_params
 from .memory import Memory
@@ -44,9 +50,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 class ChatServer:
     """Owns the kernel, the memory, and the single active conversation."""
 
-    def __init__(self, config: dict, client=None):
+    def __init__(self, config: dict, client=None, base_url: str = "http://127.0.0.1:8321"):
         self.config = config
         self.memory = Memory(config["memory_db"])
+        self.gmail = GmailClient(config, base_url)
         self.kernel = Kernel(
             client or make_client(),
             config,
@@ -168,6 +175,15 @@ class ChatServer:
             finally:
                 self._sse = None
 
+    def _gmail_state(self) -> dict:
+        info = {"configured": self.gmail.configured, "connected": self.gmail.connected, "messages": []}
+        if info["connected"]:
+            try:
+                info["messages"] = self.gmail.recent()
+            except Exception as e:  # noqa: BLE001 — surface to the page, don't crash /api/state
+                info["error"] = str(e)
+        return info
+
     def state(self) -> dict:
         with self.lock:
             memories = self.memory.recent(limit=20)
@@ -193,6 +209,7 @@ class ChatServer:
             "tasks": tasks,
             "todos": self._load_todos(),
             "content": self._load_content(),
+            "gmail": self._gmail_state(),
             "busy": self._sse is not None,
             "settings": {
                 "owner": self.config["owner"],
@@ -225,16 +242,36 @@ def make_handler(server: ChatServer):
             length = int(self.headers.get("Content-Length", 0))
             return json.loads(self.rfile.read(length) or b"{}")
 
+        def _redirect(self, location: str) -> None:
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.end_headers()
+
         def do_GET(self):
-            if self.path == "/" or self.path == "/index.html":
+            parsed = urlparse(self.path)
+            path = parsed.path
+            if path == "/" or path == "/index.html":
                 body = (STATIC_DIR / "index.html").read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-            elif self.path == "/api/state":
+            elif path == "/api/state":
                 self._json(server.state())
+            elif path == "/api/gmail/connect":
+                if not server.gmail.configured:
+                    self._json({"error": "gmail_client_id/gmail_client_secret not set in config"}, 400)
+                    return
+                self._redirect(server.gmail.auth_url())
+            elif path == "/api/gmail/callback":
+                code = parse_qs(parsed.query).get("code", [None])[0]
+                if code:
+                    try:
+                        server.gmail.handle_callback(code)
+                    except Exception:  # noqa: BLE001 — land back on the dashboard either way
+                        pass
+                self._redirect("/")
             else:
                 self._json({"error": "not found"}, 404)
 
@@ -296,7 +333,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config)
-    chat_server = ChatServer(config)
+    chat_server = ChatServer(config, base_url=f"http://{args.host}:{args.port}")
     httpd = ThreadingHTTPServer((args.host, args.port), make_handler(chat_server))
     print(f"{config['name']} dashboard: http://{args.host}:{args.port}")
     try:

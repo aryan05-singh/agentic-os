@@ -20,6 +20,9 @@ autonomous_shell: false   # allow shell in unattended scheduled tasks
 shell_timeout: 120
 browser_timeout: 20       # seconds per browser action (needs: pip install playwright && playwright install chromium)
 
+# gmail_client_id: xxxxx.apps.googleusercontent.com    # Desktop-app OAuth client, enables Recent Mail
+# gmail_client_secret: GOCSPX-xxxxx                     # from Google Cloud Console > Credentials
+
 # Scheduled tasks — run one pass via cron:
 #   */30 * * * * cd /path/to/agentic-os && python3 -m agentic_os.scheduler --config config.yaml
 tasks:

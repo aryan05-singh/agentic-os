@@ -22,6 +22,8 @@ DEFAULTS = {
     "autonomous_shell": False,  # allow shell in unattended scheduled tasks
     "shell_timeout": 120,
     "browser_timeout": 20,      # seconds per browser action (playwright)
+    "gmail_client_id": None,      # OAuth client id (Desktop app type) — enables Recent Mail
+    "gmail_client_secret": None,  # OAuth client secret, paired with gmail_client_id
     "tasks": [],
 }
 

@@ -271,9 +271,12 @@
     </div>
     <div class="panel">
       <h2>Recent Mail</h2>
-      <div class="disconnected">Connect Gmail to retrieve your recent mail automatically.</div>
-      <button class="connect-btn" data-connect="Gmail">Connect Gmail</button>
-      <div class="connect-note" id="mail-note"></div>
+      <div id="mail-disconnected">
+        <div class="disconnected">Connect Gmail to retrieve your recent mail automatically.</div>
+        <button class="connect-btn" id="mail-connect-btn">Connect Gmail</button>
+        <div class="connect-note" id="mail-note"></div>
+      </div>
+      <div id="mail-list" style="display:none"></div>
     </div>
   </div>
 
@@ -446,6 +449,35 @@ async function loadState() {
       content.appendChild(card);
     }
 
+    const gmail = state.gmail || { configured: false, connected: false, messages: [] };
+    if (gmail.connected) {
+      $("mail-disconnected").style.display = "none";
+      const list = $("mail-list");
+      list.style.display = "";
+      list.innerHTML = "";
+      if (gmail.error) {
+        list.innerHTML = `<div class="empty">Couldn't load mail: ${gmail.error}</div>`;
+      } else if (!gmail.messages.length) {
+        list.innerHTML = '<div class="empty">No recent mail.</div>';
+      } else {
+        for (const m of gmail.messages) {
+          const card = document.createElement("div");
+          card.className = "card";
+          const topic = document.createElement("div"); topic.className = "topic"; topic.textContent = m.from;
+          const body = document.createElement("div"); body.className = "body"; body.textContent = m.subject;
+          const when = document.createElement("div"); when.className = "when"; when.textContent = timeAgo(m.date);
+          card.append(topic, body, when);
+          list.appendChild(card);
+        }
+      }
+    } else {
+      $("mail-disconnected").style.display = "";
+      $("mail-list").style.display = "none";
+      if (!gmail.configured) {
+        $("mail-note").textContent = "";
+      }
+    }
+
     $("queue-label").textContent = "Queue: " + (state.busy ? 1 : 0);
     lastSettings = state.settings;
   } catch { setOnline(false); }
@@ -486,12 +518,16 @@ $("content-form").onsubmit = async (e) => {
   }
 };
 
-document.querySelectorAll(".connect-btn").forEach((btn) => {
+document.querySelectorAll(".connect-btn[data-connect]").forEach((btn) => {
   btn.onclick = () => {
     const note = btn.nextElementSibling;
     note.textContent = `${btn.dataset.connect} isn't wired up yet — this is a placeholder, same as the reference UI.`;
   };
 });
+
+$("mail-connect-btn").onclick = () => {
+  window.location.href = "/api/gmail/connect";
+};
 
 $("expense-period").querySelectorAll("button").forEach((btn) => {
   btn.onclick = () => {

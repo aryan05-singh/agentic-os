@@ -93,10 +93,13 @@ Also in the dashboard:
 - **Content System** — type a topic, hit Generate, and a one-shot LLM call
   (separate from your chat history) writes a short post and stores it in
   `content.json`. No hashtag spam, just the text.
-- **Expenses / Recent Mail** — honest empty-state panels: a "Connect Gmail"
-  button, same disconnected state a fresh install would actually be in. Real
-  Gmail data is a bigger scope (OAuth) than this project takes on; the UI is
-  there when it's wired up.
+- **Recent Mail** — real, read-only Gmail via OAuth once `gmail_client_id` /
+  `gmail_client_secret` are set in config (Google Cloud Console → OAuth client,
+  Desktop app type, `gmail.readonly` scope, add yourself as a test user).
+  Click Connect, approve, and the panel shows your last few inbox messages.
+  Token lives at `<workspace>/gmail_token.json`, never committed.
+- **Expenses** — still an honest empty-state panel; parsing spend out of email
+  is a separate scope this project doesn't take on.
 - **Settings / Queue** — a read-only settings dialog (model, thinking mode,
   workspace path, approval policy) and a queue indicator that reflects
   whether a turn is in flight.
